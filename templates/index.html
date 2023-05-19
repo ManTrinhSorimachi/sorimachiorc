@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>OCR App</title>
+    <style>
+        img{
+            border: 1px solid red;
+        }
+        .text-container {
+            border: 1px solid black;
+            padding: 5px;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+	<h1>OCR App</h1>
+	<form id="myForm">
+    <input type="file" id="myFile" name="file" onchange="uploadFile()"><br><br>
+    <img id="imagePreview" src="#" alt="Image preview" style="max-width: 500px; max-height: 500px; display: none;">
+    <input type="button" value="Upload" onclick="uploadFile()" style="display:none;">
+	</form>
+	<div id="output"></div>
+    <div>
+        <br>
+        <button id="send_data">Submit</button>
+    </div>
+</body>
+</html>
+
+<script>
+    function create_block(item){
+        var textContainer = document.createElement("div");
+        textContainer.classList.add("text-container");
+        textContainer.innerHTML += "<h1>" + `<img src='data:image/jpeg;base64, ${item.image}'>` + "&nbsp;&nbsp;" + item.text + "</h1>";
+        var editButton = document.createElement("button");
+        editButton.textContent = "Edit";
+        editButton.addEventListener("click", function(){
+            var newText = prompt("Enter new text:", item.text);
+            if(newText){
+                item.text = newText;
+                textContainer.innerHTML = "<h1>" + `<img src='data:image/jpeg;base64, ${item.image}'>` + "&nbsp;&nbsp;" + item.text + "</h1>";
+            }
+        });
+        var deleteButton = document.createElement("button");
+        deleteButton.textContent = "Delete";
+        deleteButton.addEventListener("click", function(){
+            textContainer.remove();
+        });
+
+        textContainer.appendChild(editButton);
+        textContainer.appendChild(deleteButton);
+        document.getElementById('output').appendChild(textContainer);
+        return textContainer;
+    }
+	function uploadFile() {
+        var input = document.getElementById("myFile");
+        var file = input.files[0];
+        var reader = new FileReader();
+
+        reader.onload = function(e) {
+            var img = document.getElementById("imagePreview");
+            img.src = e.target.result;
+            img.style.display = "block";
+            var outputDiv = document.getElementById('output');
+            outputDiv.innerHTML = ""; // clear old results
+        }
+
+        reader.readAsDataURL(file);
+        
+        var xhr = new XMLHttpRequest();
+        var formData = new FormData();
+        formData.append("file", file);
+
+        xhr.onreadystatechange = function() {
+            if (this.readyState == 4 && this.status == 200) {
+                var outputDiv = document.getElementById('output');
+                outputDiv.innerHTML = ""; // clear old results
+                var response = JSON.parse(this.responseText);
+                var data = response.data;
+                data.forEach((item)=>{
+                    create_block(item);
+                })
+            }
+        };
+
+        xhr.open("POST", "/api");
+        xhr.send(formData);
+    }
+    
+    send_data.onclick = async ()=>{
+        var data = [];
+        document.querySelectorAll('.text-container').forEach(item => {
+            const img = item.firstChild.firstChild.src.slice(24);
+            const text = item.firstChild.innerText.slice(2);
+            data.push({'text': text, 'img': img})
+        })
+        const rawResponse = await fetch('../post_data', {
+            method: 'POST',
+            headers: {
+              'Accept': 'application/json',
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(data)
+        });
+        const content = await rawResponse.json();
+        
+        console.log(content);
+        alert(content);
+    } 
+
+</script>
